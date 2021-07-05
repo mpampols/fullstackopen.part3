@@ -3,8 +3,11 @@ require('dotenv').config()
 const http = require("http");
 const cors = require("cors");
 const express = require("express");
-const { prependOnceListener } = require("process");
+const {
+  prependOnceListener
+} = require("process");
 const app = express();
+
 const Person = require('./models/person')
 
 var morgan = require("morgan");
@@ -21,8 +24,7 @@ app.use(
 );
 app.use(express.static("build"));
 
-let persons = [
-  {
+let persons = [{
     id: 1,
     name: "John",
     number: "111 111 111",
@@ -76,7 +78,6 @@ app.delete("/api/persons/:id", (request, response) => {
 });
 
 app.post("/api/persons", (request, response) => {
-  console.log(request.body);
   const maxId = persons.length > 0 ? Math.max(...persons.map((p) => p.id)) : 0;
 
   if (!request.body.name || !request.body.number) {
@@ -91,14 +92,14 @@ app.post("/api/persons", (request, response) => {
     });
   }
 
-  const person = {
-    id: maxId + 1,
+  const person = new Person({
     name: request.body.name,
     number: request.body.number,
-  };
+  });
 
-  persons = persons.concat(person);
-  response.json(person);
+  person.save().then(savedPerson => {
+    response.json(savedPerson);
+  })
 });
 
 const PORT = process.env.PORT || 3001;
