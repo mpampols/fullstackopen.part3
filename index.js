@@ -17,24 +17,12 @@ morgan.token("data", function (req, res) {
 
 // Middlewares
 app.use(cors());
-app.use(express.json());
 app.use(express.urlencoded());
 app.use(
   morgan(":method :url :status :res[content-length] - :response-time ms :data")
 );
 app.use(express.static("build"));
-
-// Middleware: Error handler
-const errorHandler = (error, request, response, next) => {
-  console.error(error.message)
-
-  if (error.name === 'CastError') {
-    return response.status(400).send({ error: 'malformatted id' })
-  } 
-
-  next(error)
-}
-app.use(errorHandler)
+app.use(express.json());
 
 app.get("/", (request, response) => {
   response.send("<h1>Hello World!</h1>");
@@ -82,8 +70,13 @@ app.put("/api/persons/:id", (request, response, next) => {
     name: request.body.name,
     number: request.body.number
   }
-
-  Person.findByIdAndUpdate(request.params.id, person, {new: true})
+  const opts = { 
+    runValidators: true,
+    new: true,
+    context: 'query'
+  };
+  
+  Person.findByIdAndUpdate(request.params.id, person, opts)
     .then(updatedPerson => {
       response.json(updatedPerson)
     })
@@ -108,20 +101,42 @@ app.post("/api/persons", (request, response, next) => {
     .then(foundPerson => {
       if (foundPerson) {
         // Name exists, updating...
-        Person.findByIdAndUpdate(request.params.id, foundPerson, {new: true})
+        const opts = { 
+          runValidators: true,
+          new: true,
+          context: 'query'
+        };
+        Person.findByIdAndUpdate(request.params.id, foundPerson, opts)
         .then(updatedPerson => {
           response.json(updatedPerson)
         })
         .catch(error => next(error))
       } else {
         // Name is new, creating...
-        person.save().then(savedPerson => {
-          response.json(savedPerson)
-        })
+        person.save()
+          .then(savedPerson => {
+            return savedPerson.toJSON()
+          })
+          .then(savedAndFormattedPerson => {
+            response.json(savedAndFormattedPerson)
+          })
+          .catch(error => next(error))
       }
     })
     .catch(error => next(error))
 });
+
+// Middleware: Error handler
+const errorHandler = (error, request, response, next) => {
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).send({ json: error.message })
+  }
+
+  next(error)
+}
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
