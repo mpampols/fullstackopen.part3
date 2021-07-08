@@ -1,15 +1,13 @@
 require('dotenv').config()
 
-const http = require('http')
 const cors = require('cors')
 const express = require('express')
-const { prependOnceListener } = require('process')
 const app = express()
 
 const Person = require('./models/person')
 
 var morgan = require('morgan')
-morgan.token('data', function (req, res) {
+morgan.token('data', function (req) {
   return JSON.stringify(req.body)
 })
 
@@ -27,11 +25,12 @@ app.get('/', (request, response) => {
 })
 
 app.get('/index', (request, response) => {
-  const num_of_persons = persons.length
   const request_date = new Date()
-  response.send(`
-    <p>Phonebook has info for ${num_of_persons} people</p>
-    <p>${request_date}</p>`)
+  Person.find({}).then((persons) => {
+    response.send(`
+      <p>Phonebook has info for ${persons.length} people</p>
+      <p>${request_date}</p>`)
+  })
 })
 
 app.get('/api/persons', (request, response) => {
@@ -40,7 +39,7 @@ app.get('/api/persons', (request, response) => {
   })
 })
 
-app.get('/api/persons/:id', (request, response) => {
+app.get('/api/persons/:id', (request, response, next) => {
   Person.findById(request.params.id)
     .then((person) => {
       if (person) {
@@ -54,7 +53,7 @@ app.get('/api/persons/:id', (request, response) => {
 
 app.delete('/api/persons/:id', (request, response, next) => {
   Person.findByIdAndRemove(request.params.id)
-    .then((result) => {
+    .then(() => {
       response.status(204).end()
     })
     .catch((error) => next(error))
@@ -133,9 +132,10 @@ const errorHandler = (error, request, response, next) => {
   }
 
   next(error)
-};
+}
 app.use(errorHandler)
 
+// eslint-disable-next-line no-undef
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
